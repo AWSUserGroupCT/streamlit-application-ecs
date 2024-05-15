@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ECS Fargate service with Application Load Balancer
+
+Parameters:
+  Image:
+    Type: String
+    Description: The location of the image for ECS
+    Default: 992970007677.dkr.ecr.us-east-1.amazonaws.com/streamlit-profile-val:latest
+  ApplicationName:
+    Type: String
+    Description: The name of the application
+    Default: streamlit-profile
+  DesiredCount:
+    Type: Number
+    Description: The number of tasks to run
+    Default: 1
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: The first subnet ID
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: The second subnet ID
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: The first subnet ID
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: The second subnet ID
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID
+  HostedZoneName:
+    Type: String
+    Description: The name of the hosted zone
+    Default: tcenter.io
+
+Resources:
+  FargateCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'fargate-cluster-${ApplicationName}'
+
+  FargateTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:CreateLogGroup
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeRepositories
+                  - ecr:GetRepositoryPolicy
+                  - ecr:ListImages                  -
+                Resource: "*"
+
+  TaskRoleStreamLit:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: bedrock
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                - "bedrock:InvokeModel"
+                - "bedrock:InvokeModelWithResponseStream"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                - "ssm:GetParameter"
+                - "ssm:GetParameters"
+                Resource: "*"
+
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the service
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the load balancer
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  FargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'fargate-task-${ApplicationName}'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt FargateTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRoleStreamLit.Arn
+      ContainerDefinitions:
+        - Name: !Sub "${ApplicationName}-container"
+          Image: !Ref Image
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8501
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+      Port: 8501
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPC
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: streamlitlb
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      IpAddressType: ipv4
+      Type: application
+    DependsOn: LoadBalancerSecurityGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: arn:aws:acm:us-east-1:666654952979:certificate/96859f51-d745-40b9-aea5-97f49966f866
+
+  FargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref FargateCluster
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref FargateTaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+      LoadBalancers:
+        - ContainerName: !Sub "${ApplicationName}-container"
+          ContainerPort: 8501
+          TargetGroupArn: !Ref TargetGroup
+      ServiceName: !Sub 'fargate-service-${ApplicationName}'
+    DependsOn: [Listener, FargateCluster]
+
+#  Route53Record:
+#    Type: AWS::Route53::RecordSet
+#    Properties:
+#      HostedZoneName: !Ref HostedZoneName
+#      Name: !Sub "slprofile.tcenter.io"
+#      Type: A
+#      AliasTarget:
+#        DNSName: !GetAtt LoadBalancer.DNSName
+#        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+#    DependsOn: LoadBalancer
