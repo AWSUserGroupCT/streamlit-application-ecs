@@ -8,6 +8,8 @@ env:
   AWS_REGION: us-east-1          # set this to your preferred AWS region, e.g. us-west-1
   ECS_TASK_DEFINITION: task-definition.json # set this to the path to your Amazon ECS task definition                                            # file, e.g. .aws/task-definition.json
   ECR_REPOSITORY: streamlit-profile-val
+  CONTAINER_NAME: streamlit-profile-container
+  ECS_SERVICE: fargate-service-streamlit-profile
 
 jobs:
   build:
@@ -24,7 +26,7 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        role-to-assume: arn:aws:iam::${{ env.PRODUCTION_ACCOUNT  }}:role/ECS_FullAccess
+        role-to-assume: arn:aws:iam::${{ env.PRODUCTION_ACCOUNT  }}:role/ecs-streamlit-role
         aws-region: us-east-1
     - name: Login to Amazon ECR
       id: login-ecr
@@ -43,3 +45,18 @@ jobs:
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
     - name: echo image id
       run: echo "${{ steps.build-image.outputs.image }}"
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY}}:${{ github.sha }}
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+
