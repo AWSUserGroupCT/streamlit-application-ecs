@@ -6,9 +6,7 @@ on:
 
 env:
   AWS_REGION: us-east-1          # set this to your preferred AWS region, e.g. us-west-1
-  ECS_SERVICE: hello-world-service
   ECS_TASK_DEFINITION: task-definition.json # set this to the path to your Amazon ECS task definition                                            # file, e.g. .aws/task-definition.json
-  CONTAINER_NAME: hello-world-container           # set this to the name of the container in the
   ECR_REPOSITORY: streamlit-profile-val
 
 jobs:
