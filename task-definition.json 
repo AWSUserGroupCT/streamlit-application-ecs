@@ -1,29 +1,73 @@
 {
+    "family": "fargate-task-streamlit-profile",
+    "containerDefinitions": [
+        {
+            "name": "streamlit-profile-container",
+            "image": "992970007677.dkr.ecr.us-east-1.amazonaws.com/streamlit-profile-val:latest",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "name": "streamlit-profile-container-8501-tcp",
+                    "containerPort": 8501,
+                    "hostPort": 8501,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "dockerSecurityOptions": [],
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/fargate-task-streamlit-profile",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": [],
+            "credentialSpecs": []
+        },
+        {
+            "name": "aws-otel-collector",
+            "image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.39.0",
+            "cpu": 0,
+            "portMappings": [],
+            "essential": true,
+            "command": [
+                "--config=/etc/ecs/ecs-cloudwatch-xray.yaml"
+            ],
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/ecs-aws-otel-sidecar-collector",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": []
+        }
+    ],
+    "taskRoleArn": "arn:aws:iam::666654952979:role/streamlit-ecs-TaskRoleStreamLit-6ZVpUJLt95NT",
+    "executionRoleArn": "arn:aws:iam::666654952979:role/streamlit-ecs-FargateTaskExecutionRole-kLlL5FqjSuUp",
+    "networkMode": "awsvpc",
     "requiresCompatibilities": [
         "FARGATE"
     ],
-    "inferenceAccelerators": [],
-    "containerDefinitions": [
-        {
-            "name": "hello-world-container",
-            "image": "ecs-devops-sandbox-repository:00000",
-            "resourceRequirements": null,
-            "essential": true,
-            "portMappings": [
-                {
-                    "containerPort": "8501",
-                    "protocol": "tcp"
-                }
-
-            ]
-        }
-    ],
-    "volumes": [],
-    "networkMode": "awsvpc",
-    "memory": "512",
-    "cpu": "256",
-    "executionRoleArn": "arn:aws:iam::<AccountID>:role/",
-    "family": "ecs-devops-sandbox-task-definition",
-    "taskRoleArn": "",
-    "placementConstraints": []
+    "cpu": "1024",
+    "memory": "2048",
+    "runtimePlatform": {
+        "cpuArchitecture": "ARM64",
+        "operatingSystemFamily": "LINUX"
+    }
 }
