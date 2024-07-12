@@ -10,12 +10,7 @@ Shows how to use the AWS SDK for Python (Boto3) with the Agents for Amazon
 Bedrock Runtime client to send prompts to an agent to process and respond to.
 """
 
-
-
 logger = logging.getLogger(__name__)
-
-
-
 
 # snippet-start:[python.example_code.bedrock-agent-runtime.BedrockAgentsRuntimeWrapper.class]
 # snippet-start:[python.example_code.bedrock-agent-runtime.BedrockAgentRuntimeWrapper.decl]
@@ -64,7 +59,6 @@ class BedrockAgentRuntimeWrapper:
             raise
 
         return completion
-
     # snippet-end:[python.example_code.bedrock-agent-runtime.BedrockAgentRuntimeWrapper.decl]
 
     # snippet-start:[python.example_code.bedrock-agent-runtime.InvokeAgent]
@@ -130,8 +124,3 @@ if question:
 
     except ClientError as e:
         st.error(f"Couldn't process the question: {e}")
-
-
-
-
-
