@@ -98,7 +98,7 @@ class BedrockAgentRuntimeWrapper:
         return completion
 
 st.title("Chat with an Agent")
-question = st.text_input("Ask a question about your AWS accounts")
+question = st.text_input("Sign up for a talk at the Conneticut AWS UserGroup")
 
 if question:
     try:
@@ -113,8 +113,8 @@ if question:
         # snippet-end:[python.example_code.bedrock-agent-runtime.CreateWrapper]
 
         # snippet-start:[python.example_code.bedrock-agent-runtime.InvokeAgent]
-        agent_id = "NMUMODDGHK"
-        agent_alias_id = "XBB0WS1RZF"
+        agent_id = "ESE2FSH4QM"
+        agent_alias_id = "0RPN12ID7K"
         session_id = "example-session-id"
 
         response = bedrock_agent.invoke_agent(agent_id, agent_alias_id, session_id, question)
